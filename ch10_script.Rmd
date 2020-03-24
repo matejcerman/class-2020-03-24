@@ -4,7 +4,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = F)
 library(infer)
 library(gov.1005.data)
 library(broom)
@@ -19,9 +19,26 @@ library(tidyverse)
 
 **Prompt:** What is the average income of the commuters? How sure can we be of that number? If we were to survey another 115 commuters, what would their average income be? How does this connect to the difference between the harpoon and the net in the book? Don't know? Look it up!
 
+```{r no2}
+avg_income <- train %>%
+  summarise(avg_inc = mean(income))
+```
+
+
 # Scene 3
 
 **Prompt:** Create a bootstrap sample of a 1,000 replications of the mean income of the commuters, where each replication draws the appropriate number, with replacement, from the original data.
+
+```{r bootstrap}
+train %>%
+  rep_sample_n(115, replace = TRUE, reps = 1000) %>%
+  group_by(replicate) %>%
+  summarise(mean_inc = mean(income)) %>%
+  pull(mean_inc) %>%
+  quantile(c(0.25, 0.75))
+
+```
+
 
 # Scene 4
 
@@ -36,22 +53,56 @@ library(tidyverse)
 
 **Prompt:**  Calculate a 95% confidence interval for the difference between the mean income of treated and control commuters in our sample. Provide a Bayesian and Frequentist interpretation of this interval.
 
+```{r}
+  train %>%
+  rep_sample_n(115, replace = TRUE, reps = 1000) %>%
+  group_by(replicate, treatment) %>%
+  summarize(avg_income = mean(income)) %>%
+  pivot_wider(values_from = avg_income, names_from = "treatment") %>%
+  mutate(difference = Control - Treated) %>%
+  pull(difference) %>%
+  quantile(c(.025, .975))
+```
+
 
 # Scene 8
 
 **Prompt:**  What about the difference between att_chg of the treated and the controls? Calculate the mean difference, just as we did with income. Is this difference "large?" 
 
+```{r}
+train %>%
+  group_by(treatment) %>%
+  summarise(avg_chg = mean(att_chg)) %>%
+  pivot_wider(values_from = avg_chg, names_from = treatment) %>%
+  mutate(difference = Treated - Control) %>%
+  pull(difference)
+```
 
 
 # Scene 9
 
 **Prompt:** What is the 99% confidence interval for that difference? 
 
+```{r diff_interval}
+  train %>%
+  rep_sample_n(115, replace = TRUE, reps = 1000) %>%
+  group_by(replicate, treatment) %>%
+  summarize(avg_chg = mean(att_chg)) %>%
+  pivot_wider(values_from = avg_chg, names_from = "treatment") %>%
+  mutate(difference = Control - Treated) %>%
+  pull(difference) %>%
+  quantile(c(.025, .975))
+```
 
 
 # Scene 10
 
 **Prompt:** Use `lm()` to calculate the difference between att_chg of the treated and the controls? 
+
+```{r}
+lm(att_chg ~ treatment, data = train) %>%
+  tidy(conf.int = TRUE)
+```
 
 
 # Scene 11
